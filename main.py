@@ -40,7 +40,7 @@ def load_datasets():
         dev_instances = dev_instances[:100]
         test_instances = test_instances[:100]
 
-    return training_instances, dev_instances, test_instances, c2i, t2i
+    return training_instances, test_instances, dev_instances, c2i, t2i
     # Make up some training data
     # training_data = [(
     #     "充 满 活 力 的 热 门 音 乐 ，".split(),
@@ -116,13 +116,18 @@ def evaluate(model, test_data, dataset):
 
 
 def main():
-    EMBEDDING_DIM = 5
-
     training_data, dev_data, test_data, char_to_ix, tag_to_ix = load_datasets()
     tag_to_ix, START_TAG_ID, STOP_TAG_ID = complete_tags(tag_to_ix)
 
-    model = BiLSTM_CRF(len(char_to_ix), len(tag_to_ix), START_TAG_ID, STOP_TAG_ID, EMBEDDING_DIM, args.hidden_dim, args.dropout)
-    '''optimizer = optim.SGD(model.parameters(), lr=args.learning_rate, weight_decay=args.learning_rate_decay)'''
+    if args.char_embeddings is not None:
+        char_embeddings = utils.read_pretrained_embeddings(args.char_embeddings, char_to_ix)
+        EMBEDDING_DIM = len(args.char_embeddings)
+        model = BiLSTM_CRF(len(char_to_ix), len(tag_to_ix), START_TAG_ID, STOP_TAG_ID,
+                            args.hidden_dim, args.dropout, EMBEDDING_DIM, char_embeddings)
+    else:
+        EMBEDDING_DIM = args.char_embedding_dim
+        model = BiLSTM_CRF(len(char_to_ix), len(tag_to_ix), START_TAG_ID, STOP_TAG_ID,
+                            args.hidden_dim, args.dropout, EMBEDDING_DIM)
 
     # Check predictions before training
     evaluate(model, test_data, 'Test')
@@ -131,7 +136,7 @@ def main():
     for epoch in range(
             args.num_epochs):  # again, normally you would NOT do 300 epochs, it is toy data
 
-        learning_rate = args.learning_rate / (1 + epoch / 10)
+        learning_rate = args.learning_rate / (1 + epoch)
         print('Epoch: {}/{}. Learning rate:{}'.format(epoch, args.num_epochs, learning_rate))
 
         optimizer = optim.SGD(model.parameters(), lr=learning_rate)
