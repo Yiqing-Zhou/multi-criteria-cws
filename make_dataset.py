@@ -21,7 +21,6 @@ from utils import get_processing_word, read_pretrained_embeddings, is_dataset_ta
 Instance = collections.namedtuple("Instance", ["sentence", "tags"])
 
 UNK_TAG = "<UNK>"
-NONE_TAG = "<NONE>"
 START_TAG = "<START>"
 END_TAG = "<STOP>"
 PADDING_CHAR = "<*>"
@@ -40,7 +39,7 @@ def read_file(filename, w2i, t2i, c2i, max_iter=sys.maxsize, processing_word=get
         words, tags = [], []
         for line in f:
             line = line.strip()
-            if len(line) == 0 or line.startswith("-DOCSTART-"):
+            if line=='BMES_BREAK' or line.startswith("-DOCSTART-"):
                 if len(words) != 0:
                     niter += 1
                     if max_iter is not None and niter > max_iter:
