@@ -7,6 +7,13 @@ def argmax(vec):
     return idx.item()
 
 
+def tensor(data, dtype=None, device=None, requires_grad=False):
+    tens =  torch.tensor(data, dtype=dtype, device=device, requires_grad=requires_grad)
+    if torch.cuda.is_available():
+        tens = tens.cuda()
+    return tens
+
+
 # Compute log sum exp in a numerically stable way for the forward algorithm
 def log_sum_exp(vec):
     max_score = vec[0, argmax(vec)]
@@ -29,7 +36,7 @@ class BiLSTM_CRF(nn.Module):
         if char_embedding is None:
             self.char_embeds = nn.Embedding(vocab_size, embedding_dim)
         else:
-            char_embedding = torch.tensor(char_embedding, dtype=torch.float)
+            char_embedding = tensor(char_embedding, dtype=torch.float)
             self.char_embeds = nn.Embedding.from_pretrained(char_embedding)
         self.lstm = nn.LSTM(embedding_dim, hidden_dim // 2,
                             num_layers=1, bidirectional=True)
@@ -95,7 +102,7 @@ class BiLSTM_CRF(nn.Module):
     def _score_sentence(self, feats, tags):
         # Gives the score of a provided tag sequence
         score = torch.zeros(1)
-        tags = torch.cat([torch.tensor([self.start_tag_id], dtype=torch.long), tags])
+        tags = torch.cat([tensor([self.start_tag_id], dtype=torch.long), tags])
         for i, feat in enumerate(feats):
             score = score + \
                 self.transitions[tags[i + 1], tags[i]] + feat[tags[i + 1]]

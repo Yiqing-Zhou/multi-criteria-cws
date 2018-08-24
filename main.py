@@ -12,9 +12,10 @@ import torch.optim as optim
 import arguments
 import utils
 from model import BiLSTM_CRF
+from model import tensor
 
-Instance = collections.namedtuple("Instance", ["sentence", "tags"])
-Instance_digit = collections.namedtuple("Instance_digit", ["sentence_array", "tag_ids"])
+# Instance = collections.namedtuple("Instance", ["sentence", "tags"])
+# Instance_digit = collections.namedtuple("Instance_digit", ["sentence_array", "tag_ids"])
 
 
 args = arguments.parse_args()
@@ -77,6 +78,23 @@ def complete_tags(tag_to_ix):
     return tag_to_ix, tag_to_ix[START_TAG], tag_to_ix[STOP_TAG]
 
 
+def init_model(char_to_ix, tag_to_ix, START_TAG_ID, STOP_TAG_ID):
+    if args.char_embeddings is not None:
+        char_embeddings = utils.read_pretrained_embeddings(args.char_embeddings, char_to_ix)
+        EMBEDDING_DIM = char_embeddings.shape[1]
+        model = BiLSTM_CRF(len(char_to_ix), len(tag_to_ix), START_TAG_ID, STOP_TAG_ID,
+                            args.hidden_dim, args.dropout, EMBEDDING_DIM, char_embeddings)
+    else:
+        EMBEDDING_DIM = args.char_embedding_dim
+        model = BiLSTM_CRF(len(char_to_ix), len(tag_to_ix), START_TAG_ID, STOP_TAG_ID,
+                            args.hidden_dim, args.dropout, EMBEDDING_DIM)
+    
+    if torch.cuda.is_available():
+        model.cuda()
+    
+    return model
+
+
 def train(model, optimizer, training_data):
     for sentence, tags in training_data:
         # Step 1. Remember that Pytorch accumulates gradients.
@@ -85,8 +103,8 @@ def train(model, optimizer, training_data):
 
         # Step 2. Get our inputs ready for the network, that is,
         # turn them into Tensors of char indices.
-        sentence_in = torch.tensor(sentence)
-        targets = torch.tensor(tags)
+        sentence_in = tensor(sentence)
+        targets = tensor(tags)
 
         # Step 3. Run our forward pass.
         loss = model.neg_log_likelihood(sentence_in, targets)
@@ -104,7 +122,7 @@ def evaluate(model, test_data, dataset):
         total = 0
         correct = 0
         for sentence, tags in test_data:
-            score, tag_seq = model(torch.tensor(sentence))
+            score, tag_seq = model(tensor(sentence))
             if len(tag_seq) != len(tags):
                 raise IndexError('Size of output tag sequence differs from that of reference.')
             totl = len(tags)
@@ -118,15 +136,7 @@ def main():
     training_data, dev_data, test_data, char_to_ix, tag_to_ix = load_datasets()
     tag_to_ix, START_TAG_ID, STOP_TAG_ID = complete_tags(tag_to_ix)
 
-    if args.char_embeddings is not None:
-        char_embeddings = utils.read_pretrained_embeddings(args.char_embeddings, char_to_ix)
-        EMBEDDING_DIM = char_embeddings.shape[1]
-        model = BiLSTM_CRF(len(char_to_ix), len(tag_to_ix), START_TAG_ID, STOP_TAG_ID,
-                            args.hidden_dim, args.dropout, EMBEDDING_DIM, char_embeddings)
-    else:
-        EMBEDDING_DIM = args.char_embedding_dim
-        model = BiLSTM_CRF(len(char_to_ix), len(tag_to_ix), START_TAG_ID, STOP_TAG_ID,
-                            args.hidden_dim, args.dropout, EMBEDDING_DIM)
+    model = init_model(char_to_ix, tag_to_ix, START_TAG_ID, STOP_TAG_ID)
 
     # Check predictions before training
     evaluate(model, test_data, 'Test')
