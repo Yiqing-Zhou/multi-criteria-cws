@@ -1,11 +1,5 @@
-import math
-import random
-import numpy
-
 import torch
-import torch.autograd as autograd
 import torch.nn as nn
-import torch.optim as optim
 
 def argmax(vec):
     # return the argmax as a python int
@@ -32,9 +26,10 @@ class BiLSTM_CRF(nn.Module):
         self.stop_tag_id = stop_tag_id
         self.dropout = nn.Dropout(dropout)
 
-        if char_embedding == None:
+        if char_embedding is None:
             self.char_embeds = nn.Embedding(vocab_size, embedding_dim)
         else:
+            char_embedding = torch.tensor(char_embedding, dtype=torch.float)
             self.char_embeds = nn.Embedding.from_pretrained(char_embedding)
         self.lstm = nn.LSTM(embedding_dim, hidden_dim // 2,
                             num_layers=1, bidirectional=True)

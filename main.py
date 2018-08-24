@@ -6,7 +6,6 @@ import collections
 import pickle
 
 import torch
-import torch.autograd as autograd
 import torch.nn as nn
 import torch.optim as optim
 
@@ -40,7 +39,7 @@ def load_datasets():
         dev_instances = dev_instances[:100]
         test_instances = test_instances[:100]
 
-    return training_instances, test_instances, dev_instances, c2i, t2i
+    return training_instances, dev_instances, test_instances, c2i, t2i
     # Make up some training data
     # training_data = [(
     #     "充 满 活 力 的 热 门 音 乐 ，".split(),
@@ -121,7 +120,7 @@ def main():
 
     if args.char_embeddings is not None:
         char_embeddings = utils.read_pretrained_embeddings(args.char_embeddings, char_to_ix)
-        EMBEDDING_DIM = len(args.char_embeddings)
+        EMBEDDING_DIM = char_embeddings.shape[1]
         model = BiLSTM_CRF(len(char_to_ix), len(tag_to_ix), START_TAG_ID, STOP_TAG_ID,
                             args.hidden_dim, args.dropout, EMBEDDING_DIM, char_embeddings)
     else:
@@ -139,7 +138,7 @@ def main():
         learning_rate = args.learning_rate / (1 + epoch)
         print('Epoch: {}/{}. Learning rate:{}'.format(epoch, args.num_epochs, learning_rate))
 
-        optimizer = optim.SGD(model.parameters(), lr=learning_rate)
+        optimizer = optim.SGD([p for p in model.parameters() if p.requires_grad], lr=learning_rate)
         train(model, optimizer, training_data)
         evaluate(model, dev_data, 'Dev')
 
