@@ -1,7 +1,6 @@
 import logging
 import os
-import sys
-import time
+import math
 import collections
 import pickle
 
@@ -15,7 +14,6 @@ from model import BiLSTM_CRF
 from model import tensor
 
 Instance = collections.namedtuple("Instance", ["sentence", "tags"])
-# Instance_digit = collections.namedtuple("Instance_digit", ["sentence_array", "tag_ids"])
 
 
 def init_logger():
@@ -56,31 +54,6 @@ def load_datasets():
         test_instances = test_instances[:100]
 
     return training_instances, dev_instances, test_instances, c2i, t2i
-    # Make up some training data
-    # training_data = [(
-    #     "充 满 活 力 的 热 门 音 乐 ，".split(),
-    #     "B E B E S B E B E S".split()
-    # ), (
-    #     "铺 着 石 板 的 广 场 中 搭 起 舞 台 ，".split(),
-    #     "S S B E S B E S B E B E S".split()
-    # )]
-    # training_data_digit = []
-
-    # tag_to_ix = {'S': 0, 'B': 1, 'E': 2, 'M': 3}
-
-    # char_to_ix = {}
-    # for sentence, tags in training_data:
-    #     sentence_array = []
-    #     for char in sentence:
-    #         if char not in char_to_ix:
-    #             sentence_array.append(len(char_to_ix))
-    #             char_to_ix[char] = len(char_to_ix)
-    #         else:
-    #             sentence_array.append(char_to_ix[char])
-    #     tag_ids = [tag_to_ix[t] for t in tags]
-    #     training_data_digit.append(Instance_digit(sentence_array, tag_ids))
-
-    # return training_data_digit, training_data_digit, training_data_digit, char_to_ix, tag_to_ix
 
 
 def complete_tags(tag_to_ix):
@@ -110,35 +83,26 @@ def init_model(char_to_ix, tag_to_ix, START_TAG_ID, STOP_TAG_ID):
     return model
 
 
-def train(model, optimizer, batch_size, training_data):
-    for batch_id, batch in enumerate(utils.minibatches(training_data, batch_size)):
-        # Step 1. Remember that Pytorch accumulates gradients.
-        # We need to clear them out before each batch
-        model.zero_grad()
+def train(model, training_data, learning_rate):
+    num_batches = math.ceil(len(training_data) / args.batch_size)
+    bar = utils.Progbar(target=num_batches)
 
+    optimizer = optim.SGD([p for p in model.parameters() if p.requires_grad], lr=learning_rate)
+    for batch_id, batch in enumerate(utils.minibatches(training_data, args.batch_size)):
+        model.zero_grad()
+        
         for sentence, tags in batch:
-            # Step 2. Get our inputs ready for the network, that is,
-            # turn them into Tensors of char indices.
             sentence_in = tensor(sentence)
             targets = tensor(tags)
 
-            # Step 3. Run our forward pass.
             loss = model.neg_log_likelihood(sentence_in, targets)
-
-            # Step 4. Compute the loss, gradients
             loss.backward()
-        
-        # Step 5. Update the parameters by calling optimizer.step()
         optimizer.step()
 
-
-def save_model(model):
-    filename = os.path.join(args.output_dir, 'model.pt')
-    utils.ensure_folder(filename)
-    torch.save(model, filename)
+        bar.update(batch_id + 1, exact=[("train loss", loss.item())])
 
 
-def evaluate(model, test_data, dataset):
+def evaluate(model, test_data, dataset_name):
     model.eval()
     with torch.no_grad():
         total = 0
@@ -151,7 +115,13 @@ def evaluate(model, test_data, dataset):
             crct = [tag_seq[i] == tags[i] for i in range(1, totl - 1)].count(1)
             total += totl
             correct += crct
-        logger.info('{} dataset accuracy: {}'.format(dataset, correct/total))
+        logger.info('{} dataset accuracy: {}'.format(dataset_name, correct/total))
+
+
+def save_model(model):
+    filename = os.path.join(args.output_dir, 'model.pt')
+    utils.ensure_folder(filename)
+    torch.save(model, filename)
 
 
 args = arguments.parse_args()
@@ -170,15 +140,12 @@ def main():
     # Check predictions before training
     evaluate(model, test_data, 'Test')
 
-    # Make sure prepare_sequence from earlier in the LSTM section is loaded
+    # Train the model
     for epoch in range(
             args.num_epochs):
-
         learning_rate = args.learning_rate / (1 + epoch)
         logger.info('Epoch: {}/{}. Learning rate:{}'.format(epoch, args.num_epochs, learning_rate))
-
-        optimizer = optim.SGD([p for p in model.parameters() if p.requires_grad], lr=learning_rate)
-        train(model, optimizer, args.batch_size, training_data)
+        train(model, training_data, learning_rate)
         evaluate(model, dev_data, 'Dev')
 
     # Check predictions after training
