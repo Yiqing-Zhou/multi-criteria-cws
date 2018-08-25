@@ -147,7 +147,8 @@ def main():
         learning_rate = args.learning_rate / (1 + epoch)
         logger.info('Epoch: {}/{}. Learning rate:{}'.format(epoch, args.num_epochs, learning_rate))
         train(model, training_data, learning_rate)
-        evaluate(model, dev_data, 'Dev')
+        if not args.skip_dev:
+            evaluate(model, dev_data, 'Dev')
 
     # Check predictions after training
     evaluate(model, test_data, 'Test')
