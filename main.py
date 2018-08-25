@@ -85,7 +85,7 @@ def init_model(char_to_ix, tag_to_ix, START_TAG_ID, STOP_TAG_ID):
 
 def train(model, training_data, learning_rate):
     model.train()
-    
+
     num_batches = math.ceil(len(training_data) / args.batch_size)
     bar = utils.Progbar(target=num_batches)
 
@@ -102,6 +102,9 @@ def train(model, training_data, learning_rate):
         optimizer.step()
 
         bar.update(batch_id + 1, exact=[("train loss", loss.item())])
+
+    if args.save_checkpoint:
+        save_model(model)
 
 
 def evaluate(model, test_data, dataset_name):
@@ -149,9 +152,6 @@ def main():
     # Check predictions after training
     evaluate(model, test_data, 'Test')
     # We got it!
-
-    if args.save_model:
-        save_model(model)
     
 
 if __name__ == '__main__':

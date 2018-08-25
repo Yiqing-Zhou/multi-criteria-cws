@@ -26,7 +26,7 @@ def parse_args():
     parser.add_argument("--output-dir", default=os.path.join('output' , time.strftime("%Y-%m-%d-%H-%M-%S")), dest="output_dir",
                         help="Directory where to write logs / serialized models")
                         
-    parser.add_argument("--save-model", dest="save_model", action="store_true", help="Don't serialize model")
+    parser.add_argument("--save-checkpoint", dest="save_checkpoint", action="store_true", help="Save checkpoint during training")
     parser.add_argument("--old-model", dest="old_model", help="Path to old model for incremental training")
     
     parser.add_argument("--skip-dev", dest="skip_dev", action="store_true", help="Skip dev set, would save some time")
