@@ -18,7 +18,22 @@ Instance = collections.namedtuple("Instance", ["sentence", "tags"])
 # Instance_digit = collections.namedtuple("Instance_digit", ["sentence_array", "tag_ids"])
 
 
-args = arguments.parse_args()
+def init_logger():
+    logger = logging.getLogger()
+
+    log_formatter = logging.Formatter("%(message)s")
+
+    filename = os.path.join(args.output_dir, 'info.log')
+    utils.ensure_folder(filename)
+    file_handler = logging.FileHandler(filename, mode='w')
+    file_handler.setFormatter(log_formatter)
+    logger.addHandler(file_handler)
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(log_formatter)
+    logger.addHandler(console_handler)
+    logger.setLevel(logging.INFO)
+    return logger
 
 
 def load_datasets():
@@ -136,7 +151,11 @@ def evaluate(model, test_data, dataset):
             crct = [tag_seq[i] == tags[i] for i in range(1, totl - 1)].count(1)
             total += totl
             correct += crct
-        print('{} dataset accuracy: {}'.format(dataset, correct/total))
+        logger.info('{} dataset accuracy: {}'.format(dataset, correct/total))
+
+
+args = arguments.parse_args()
+logger = init_logger()
 
 
 def main():
@@ -156,7 +175,7 @@ def main():
             args.num_epochs):
 
         learning_rate = args.learning_rate / (1 + epoch)
-        print('Epoch: {}/{}. Learning rate:{}'.format(epoch, args.num_epochs, learning_rate))
+        logger.info('Epoch: {}/{}. Learning rate:{}'.format(epoch, args.num_epochs, learning_rate))
 
         optimizer = optim.SGD([p for p in model.parameters() if p.requires_grad], lr=learning_rate)
         train(model, optimizer, args.batch_size, training_data)

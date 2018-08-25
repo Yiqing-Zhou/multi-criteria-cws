@@ -1,5 +1,6 @@
 import argparse
 import time
+import os
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -22,7 +23,7 @@ def parse_args():
     parser.add_argument("--batch-size", default=20, dest="batch_size", type=int,
                         help="Minibatch size of training set")
                         
-    parser.add_argument("--output-dir", default="output/" + time.strftime("%Y-%m-%d-%H-%M-%S"), dest="output_dir",
+    parser.add_argument("--output-dir", default=os.path.join('output' , time.strftime("%Y-%m-%d-%H-%M-%S")), dest="output_dir",
                         help="Directory where to write logs / serialized models")
                         
     parser.add_argument("--save-model", dest="save_model", action="store_true", help="Don't serialize model")
