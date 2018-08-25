@@ -20,6 +20,7 @@ def parse_args():
 
     parser.add_argument("--batch-size", default=20, dest="batch_size", type=int,
                         help="Minibatch size of training set")
+                        
     parser.add_argument("--output-dir", default="output", dest="output_dir",
                         help="Directory where to write logs / serialized models")
     parser.add_argument("--no-model", dest="no_model", action="store_true", help="Don't serialize model")

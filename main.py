@@ -14,7 +14,7 @@ import utils
 from model import BiLSTM_CRF
 from model import tensor
 
-# Instance = collections.namedtuple("Instance", ["sentence", "tags"])
+Instance = collections.namedtuple("Instance", ["sentence", "tags"])
 # Instance_digit = collections.namedtuple("Instance_digit", ["sentence_array", "tag_ids"])
 
 
@@ -95,24 +95,25 @@ def init_model(char_to_ix, tag_to_ix, START_TAG_ID, STOP_TAG_ID):
     return model
 
 
-def train(model, optimizer, training_data):
-    for sentence, tags in training_data:
+def train(model, optimizer, batch_size, training_data):
+    for batch_id, batch in enumerate(utils.minibatches(training_data, batch_size)):
         # Step 1. Remember that Pytorch accumulates gradients.
-        # We need to clear them out before each instance
+        # We need to clear them out before each batch
         model.zero_grad()
 
-        # Step 2. Get our inputs ready for the network, that is,
-        # turn them into Tensors of char indices.
-        sentence_in = tensor(sentence)
-        targets = tensor(tags)
+        for sentence, tags in batch:
+            # Step 2. Get our inputs ready for the network, that is,
+            # turn them into Tensors of char indices.
+            sentence_in = tensor(sentence)
+            targets = tensor(tags)
 
-        # Step 3. Run our forward pass.
-        loss = model.neg_log_likelihood(sentence_in, targets)
-        '''print('Negtive log loss: {}'.format(loss.item()))'''
+            # Step 3. Run our forward pass.
+            loss = model.neg_log_likelihood(sentence_in, targets)
 
-        # Step 4. Compute the loss, gradients, and update the parameters by
-        # calling optimizer.step()
-        loss.backward()
+            # Step 4. Compute the loss, gradients
+            loss.backward()
+        
+        # Step 5. Update the parameters by calling optimizer.step()
         optimizer.step()
 
 
@@ -143,13 +144,13 @@ def main():
 
     # Make sure prepare_sequence from earlier in the LSTM section is loaded
     for epoch in range(
-            args.num_epochs):  # again, normally you would NOT do 300 epochs, it is toy data
+            args.num_epochs):
 
         learning_rate = args.learning_rate / (1 + epoch)
         print('Epoch: {}/{}. Learning rate:{}'.format(epoch, args.num_epochs, learning_rate))
 
         optimizer = optim.SGD([p for p in model.parameters() if p.requires_grad], lr=learning_rate)
-        train(model, optimizer, training_data)
+        train(model, optimizer, args.batch_size, training_data)
         evaluate(model, dev_data, 'Dev')
 
     # Check predictions after training
