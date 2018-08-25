@@ -138,17 +138,14 @@ def main():
 
     model = init_model(char_to_ix, tag_to_ix, START_TAG_ID, STOP_TAG_ID)
 
-    # Check predictions before training
-    evaluate(model, test_data, 'Test')
-
-    # Train the model
-    for epoch in range(
-            args.num_epochs):
-        learning_rate = args.learning_rate / (1 + epoch)
-        logger.info('Epoch: {}/{}. Learning rate:{}'.format(epoch, args.num_epochs, learning_rate))
-        train(model, training_data, learning_rate)
-        if not args.skip_dev:
-            evaluate(model, dev_data, 'Dev')
+    if not args.test:
+        # Train the model
+        for epoch in range(args.num_epochs):
+            learning_rate = args.learning_rate / (1 + epoch)
+            logger.info('Epoch: {}/{}. Learning rate:{}'.format(epoch, args.num_epochs, learning_rate))
+            train(model, training_data, learning_rate)
+            if not args.skip_dev:
+                evaluate(model, dev_data, 'Dev')
 
     # Check predictions after training
     evaluate(model, test_data, 'Test')

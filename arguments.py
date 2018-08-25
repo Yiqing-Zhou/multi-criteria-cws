@@ -32,5 +32,6 @@ def parse_args():
     parser.add_argument("--skip-dev", dest="skip_dev", action="store_true", help="Skip dev set, would save some time")
     
     parser.add_argument("--test", dest="test", action="store_true", help="Test mode")
+    
     parser.add_argument("--bigram", dest="bigram", action="store_true", help="Use bigram feature")
     return parser.parse_args()
