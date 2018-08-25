@@ -1,17 +1,11 @@
 import torch
 import torch.nn as nn
+import processor
 
 def argmax(vec):
     # return the argmax as a python int
     _, idx = torch.max(vec, 1)
     return idx.item()
-
-
-def tensor(data, dtype=None, device=None, requires_grad=False):
-    tens =  torch.tensor(data, dtype=dtype, device=device, requires_grad=requires_grad)
-    if torch.cuda.is_available():
-        tens = tens.cuda()
-    return tens
 
 
 # Compute log sum exp in a numerically stable way for the forward algorithm
@@ -36,7 +30,7 @@ class BiLSTM_CRF(nn.Module):
         if char_embedding is None:
             self.char_embeds = nn.Embedding(vocab_size, embedding_dim)
         else:
-            char_embedding = tensor(char_embedding, dtype=torch.float)
+            char_embedding = processor.tensor(char_embedding, dtype=torch.float)
             self.char_embeds = nn.Embedding.from_pretrained(char_embedding)
         self.lstm = nn.LSTM(embedding_dim, hidden_dim // 2,
                             num_layers=1, bidirectional=True)
@@ -47,7 +41,7 @@ class BiLSTM_CRF(nn.Module):
         # Matrix of transition parameters.  Entry i,j is the score of
         # transitioning *to* i *from* j.
         self.transitions = nn.Parameter(
-            torch.randn(self.tagset_size, self.tagset_size))
+            processor.randn(self.tagset_size, self.tagset_size))
 
         # These two statements enforce the constraint that we never transfer
         # to the start tag and we never transfer from the stop tag
@@ -57,12 +51,12 @@ class BiLSTM_CRF(nn.Module):
         self.hidden = self.init_hidden()
 
     def init_hidden(self):
-        return (torch.randn(2, 1, self.hidden_dim // 2),
-                torch.randn(2, 1, self.hidden_dim // 2))
+        return (processor.randn(2, 1, self.hidden_dim // 2),
+                processor.randn(2, 1, self.hidden_dim // 2))
 
     def _forward_alg(self, feats):
         # Do the forward algorithm to compute the partition function
-        init_alphas = torch.full((1, self.tagset_size), -10000.)
+        init_alphas = processor.full((1, self.tagset_size), -10000.)
         # self.start_tag has all of the score.
         init_alphas[0][self.start_tag_id] = 0.
 
@@ -71,7 +65,7 @@ class BiLSTM_CRF(nn.Module):
 
         # Iterate through the sentence
         for feat in feats:
-            alphas_t = []  # The forward tensors at this timestep
+            alphas_t = []  # The forward processor.tensors at this timestep
             for next_tag in range(self.tagset_size):
                 # broadcast the emission score: it is the same regardless of
                 # the previous tag
@@ -101,8 +95,8 @@ class BiLSTM_CRF(nn.Module):
 
     def _score_sentence(self, feats, tags):
         # Gives the score of a provided tag sequence
-        score = torch.zeros(1)
-        tags = torch.cat([tensor([self.start_tag_id], dtype=torch.long), tags])
+        score = processor.zeros(1)
+        tags = torch.cat([processor.tensor([self.start_tag_id], dtype=torch.long), tags])
         for i, feat in enumerate(feats):
             score = score + \
                 self.transitions[tags[i + 1], tags[i]] + feat[tags[i + 1]]
@@ -113,7 +107,7 @@ class BiLSTM_CRF(nn.Module):
         backpointers = []
 
         # Initialize the viterbi variables in log space
-        init_vvars = torch.full((1, self.tagset_size), -10000.)
+        init_vvars = processor.full((1, self.tagset_size), -10000.)
         init_vvars[0][self.start_tag_id] = 0
 
         # forward_var at step i holds the viterbi variables for step i-1
