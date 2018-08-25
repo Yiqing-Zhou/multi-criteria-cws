@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-CUDA_VISIBLE_DEVICES=1 \
+# CUDA_VISIBLE_DEVICES=1 \
 python main.py --dataset dataset/$1/dataset.pkl --num-epochs 10 \
 --char-embeddings data/embedding/character.vec \
 --output-dir output/$1 \

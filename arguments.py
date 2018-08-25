@@ -1,4 +1,5 @@
 import argparse
+import time
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -21,12 +22,12 @@ def parse_args():
     parser.add_argument("--batch-size", default=20, dest="batch_size", type=int,
                         help="Minibatch size of training set")
                         
-    parser.add_argument("--output-dir", default="output", dest="output_dir",
+    parser.add_argument("--output-dir", default="output/" + time.strftime("%Y-%m-%d-%H-%M-%S"), dest="output_dir",
                         help="Directory where to write logs / serialized models")
-    parser.add_argument("--no-model", dest="no_model", action="store_true", help="Don't serialize model")
-    parser.add_argument("--always-model", dest="always_model", action="store_true",
-                        help="Always serialize model after every epoch")
+                        
+    parser.add_argument("--save-model", dest="save_model", action="store_true", help="Don't serialize model")
     parser.add_argument("--old-model", dest="old_model", help="Path to old model for incremental training")
+    
     parser.add_argument("--skip-dev", dest="skip_dev", action="store_true", help="Skip dev set, would save some time")
     parser.add_argument("--subset", dest="subset", help="Only train and test on a subset of the whole dataset")
     parser.add_argument("--test", dest="test", action="store_true", help="Test mode")

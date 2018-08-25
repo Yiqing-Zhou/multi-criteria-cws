@@ -117,6 +117,12 @@ def train(model, optimizer, batch_size, training_data):
         optimizer.step()
 
 
+def save_model(model):
+    filename = os.path.join(args.output_dir, 'model.pt')
+    utils.ensure_folder(filename)
+    torch.save(model, filename)
+
+
 def evaluate(model, test_data, dataset):
     model.eval()
     with torch.no_grad():
@@ -137,7 +143,10 @@ def main():
     training_data, dev_data, test_data, char_to_ix, tag_to_ix = load_datasets()
     tag_to_ix, START_TAG_ID, STOP_TAG_ID = complete_tags(tag_to_ix)
 
-    model = init_model(char_to_ix, tag_to_ix, START_TAG_ID, STOP_TAG_ID)
+    if args.old_model is not None:
+        model = torch.load(args.old_model)
+    else:
+        model = init_model(char_to_ix, tag_to_ix, START_TAG_ID, STOP_TAG_ID)
 
     # Check predictions before training
     evaluate(model, test_data, 'Test')
@@ -156,6 +165,9 @@ def main():
     # Check predictions after training
     evaluate(model, test_data, 'Test')
     # We got it!
+
+    if args.save_model:
+        save_model(model)
     
 
 if __name__ == '__main__':

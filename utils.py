@@ -524,12 +524,11 @@ def to_id_list(w2i):
     return i2w
 
 
-def make_sure_path_exists(path):
-    try:
-        os.makedirs(path)
-    except OSError as exception:
-        if exception.errno != errno.EEXIST:
-            raise
+def ensure_folder(filename):
+    folder = os.path.dirname(os.path.abspath(filename))
+    if not os.path.exists(folder):
+        ensure_folder(folder)
+        os.mkdir(folder)
 
 
 def restore_sentence(sentence):
