@@ -41,11 +41,14 @@ class BiLSTM_CRF(nn.Module):
         self.lstm = nn.LSTM(embedding_dim, hidden_dim // 2,
                             num_layers=1, bidirectional=True)
 
+        if use_bigram:
+            hidden_dim += embedding_dim * 2
         # Maps the output of the LSTM into tag space.
-        if not use_bigram:
-            self.hidden2tag = nn.Linear(hidden_dim, self.tagset_size)
-        else:
-            self.hidden2tag = nn.Linear(hidden_dim + embedding_dim * 2, self.tagset_size)
+        self.hidden2tag = nn.Sequential(
+            nn.Linear(hidden_dim, tagset_size),
+            nn.Tanh(),
+            nn.Linear(tagset_size, tagset_size)
+        )
 
         # Matrix of transition parameters.  Entry i,j is the score of
         # transitioning *to* i *from* j.
@@ -56,8 +59,6 @@ class BiLSTM_CRF(nn.Module):
         # to the start tag and we never transfer from the stop tag
         self.transitions.data[start_tag_id, :] = -10000
         self.transitions.data[:, stop_tag_id] = -10000
-
-        self.hidden = self.init_hidden()
 
     def init_hidden(self):
         return (processor.randn(2, 1, self.hidden_dim // 2),
