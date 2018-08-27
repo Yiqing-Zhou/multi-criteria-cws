@@ -24,7 +24,6 @@ END_TAG = "<STOP>"
 DEFAULT_WORD_EMBEDDING_SIZE = 100
 # TRAIN_LIMIT = 1000000000
 # TRAIN_LIMIT = 10000000
-DEBUG_SCALE = 200
 
 class BiLSTM_CRF:
     def __init__(self, tagset_size, num_lstm_layers, hidden_dim, word_embeddings, no_we_update, use_char_rnn,
@@ -359,7 +358,7 @@ logger.info(options)
 
 if options.debug:
     print("DEBUG MODE")
-    options.num_epochs = 2
+    options.num_epochs = 10
 
 random.seed(options.python_seed)
 np.random.seed(options.python_seed % (2 ** 32 - 1))
@@ -383,9 +382,9 @@ dev_vocab = dataset["dev_vocab"]
 test_instances = dataset["test_instances"]
 
 if options.debug:
-    training_instances = training_instances[0:DEBUG_SCALE]
-    dev_instances = dev_instances[0:DEBUG_SCALE]
-    test_instances = test_instances[0:DEBUG_SCALE]
+    training_instances = training_instances[0:800]
+    dev_instances = dev_instances[0:100]
+    test_instances = test_instances[0:100]
 
 if options.subset is not None:
     def pick_subset(dataset, subset):
