@@ -26,7 +26,6 @@ DEFAULT_WORD_EMBEDDING_SIZE = 100
 # TRAIN_LIMIT = 10000000
 DEBUG_SCALE = 200
 
-
 class BiLSTM_CRF:
     def __init__(self, tagset_size, num_lstm_layers, hidden_dim, word_embeddings, no_we_update, use_char_rnn,
                  char_embeddings, char_hidden_dim, margins, lowercase_words, vocab_size=None,
@@ -148,7 +147,7 @@ class BiLSTM_CRF:
         if options.bigram:
             for rep, word in zip(lstm_out, sentence):
                 bi1 = dy.lookup(self.bigram_lookup, word[0], update=self.we_update)
-                bi2 = dy.lookup(self.bigram_lookup, word[1], update=self.we_update)
+                bi2 = dy.lookup(self.bigram_lookup, word[2], update=self.we_update)
                 if self.dropout is not None:
                     bi1 = dy.dropout(bi1, self.dropout)
                     bi2 = dy.dropout(bi2, self.dropout)
@@ -199,7 +198,7 @@ class BiLSTM_CRF:
             argmax_score = np.argmax(npval)
             max_score_expr = dy.pick(scores, argmax_score)
             max_score_expr_broadcast = dy.concatenate([max_score_expr] * self.tagset_size)
-            return max_score_expr + dy.log(dy.sum_cols(dy.transpose(dy.exp(scores - max_score_expr_broadcast))))
+            return max_score_expr + dy.log(dy.sum_dim(dy.transpose(dy.exp(scores - max_score_expr_broadcast)), [1]))
 
         init_alphas = [-1e10] * self.tagset_size
         init_alphas[t2i[START_TAG]] = 0
@@ -351,7 +350,6 @@ def init_logger():
 # Set up logging
 # ===-----------------------------------------------------------------------===
 logger = init_logger()
-
 # ===-----------------------------------------------------------------------===
 # Log some stuff about this run
 # ===-----------------------------------------------------------------------===
@@ -409,7 +407,7 @@ if options.subset is not None:
 if options.bigram:
     def add_word(word):
         if word in w2i:
-            pass
+            return
         id = len(w2i)
         w2i[word] = id
         i2w.append(word)
