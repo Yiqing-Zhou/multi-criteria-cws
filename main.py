@@ -56,17 +56,16 @@ def load_datasets():
     return training_instances, dev_instances, test_instances, c2i, t2i
 
 
-def complete_tags(tag_to_ix):
-    START_TAG = "<START>"
-    STOP_TAG = "<STOP>"
-    if START_TAG not in tag_to_ix:
-        tag_to_ix[START_TAG] = len(tag_to_ix)
-    if STOP_TAG not in tag_to_ix:
-        tag_to_ix[STOP_TAG] = len(tag_to_ix)
-    return tag_to_ix, tag_to_ix[START_TAG], tag_to_ix[STOP_TAG]
+def complete_collection(element_to_ix, element_list):
+    element_id_list = []
+    for element in element_list:
+        if element not in element_to_ix:
+            element_to_ix[element] = len(element_to_ix)
+        element_id_list.append(element_to_ix[element])
+    return element_to_ix, element_id_list
 
 
-def init_model(char_to_ix, tag_to_ix, START_TAG_ID, STOP_TAG_ID):
+def init_model(char_to_ix, tag_to_ix, START_CHAR_ID, STOP_CHAR_ID, START_TAG_ID, STOP_TAG_ID):
     if args.old_model is not None:
         model = torch.load(args.old_model)
 
@@ -77,8 +76,8 @@ def init_model(char_to_ix, tag_to_ix, START_TAG_ID, STOP_TAG_ID):
         else:
             char_embeddings = None
             EMBEDDING_DIM = args.char_embedding_dim
-        model = BiLSTM_CRF(len(char_to_ix), len(tag_to_ix), START_TAG_ID, STOP_TAG_ID,
-                            args.hidden_dim, args.dropout, EMBEDDING_DIM, char_embeddings)
+        model = BiLSTM_CRF(len(char_to_ix), len(tag_to_ix), START_CHAR_ID, STOP_CHAR_ID, START_TAG_ID, STOP_TAG_ID,
+                            args.use_bigram, args.hidden_dim, args.dropout, EMBEDDING_DIM, char_embeddings)
 
     return processor.to_cuda_if_available(model)
 
@@ -134,9 +133,13 @@ logger = init_logger()
 
 def main():
     training_data, dev_data, test_data, char_to_ix, tag_to_ix = load_datasets()
-    tag_to_ix, START_TAG_ID, STOP_TAG_ID = complete_tags(tag_to_ix)
 
-    model = init_model(char_to_ix, tag_to_ix, START_TAG_ID, STOP_TAG_ID)
+    START_TAG = "<START>"
+    STOP_TAG = "<STOP>"
+    char_to_ix, [START_CHAR_ID, STOP_CHAR_ID] = complete_collection(char_to_ix, [START_TAG, STOP_TAG])
+    tag_to_ix, [START_TAG_ID, STOP_TAG_ID] = complete_collection(tag_to_ix, [START_TAG, STOP_TAG])
+
+    model = init_model(char_to_ix, tag_to_ix, START_CHAR_ID, STOP_CHAR_ID, START_TAG_ID, STOP_TAG_ID)
 
     if not args.test:
         # Train the model

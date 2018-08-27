@@ -33,5 +33,5 @@ def parse_args():
     
     parser.add_argument("--test", dest="test", action="store_true", help="Test mode")
     
-    parser.add_argument("--bigram", dest="bigram", action="store_true", help="Use bigram feature")
+    parser.add_argument("--use-bigram", dest="use_bigram", action="store_true", help="Use bigram feature")
     return parser.parse_args()

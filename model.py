@@ -17,16 +17,22 @@ def log_sum_exp(vec):
 
 class BiLSTM_CRF(nn.Module):
 
-    def __init__(self, vocab_size, tagset_size, start_tag_id, stop_tag_id,
-                    hidden_dim, dropout, embedding_dim, char_embedding=None):
+    def __init__(self, vocab_size, tagset_size, start_char_id, stop_char_id, start_tag_id, stop_tag_id,
+                    use_bigram, hidden_dim, dropout, embedding_dim, char_embedding=None):
         super(BiLSTM_CRF, self).__init__()
-        self.hidden_dim = hidden_dim
         self.vocab_size = vocab_size
         self.tagset_size = tagset_size
+
+        self.start_char_id = start_char_id
+        self.stop_char_id = stop_char_id
         self.start_tag_id = start_tag_id
         self.stop_tag_id = stop_tag_id
+
+        self.use_bigram = use_bigram
+        self.hidden_dim = hidden_dim
         self.dropout = nn.Dropout(dropout)
 
+        # Train or load pretrained char_embedding
         if char_embedding is None:
             self.char_embeds = nn.Embedding(vocab_size, embedding_dim)
         else:
@@ -36,7 +42,10 @@ class BiLSTM_CRF(nn.Module):
                             num_layers=1, bidirectional=True)
 
         # Maps the output of the LSTM into tag space.
-        self.hidden2tag = nn.Linear(hidden_dim, self.tagset_size)
+        if not use_bigram:
+            self.hidden2tag = nn.Linear(hidden_dim, self.tagset_size)
+        else:
+            self.hidden2tag = nn.Linear(hidden_dim + embedding_dim * 2, self.tagset_size)
 
         # Matrix of transition parameters.  Entry i,j is the score of
         # transitioning *to* i *from* j.
@@ -90,6 +99,16 @@ class BiLSTM_CRF(nn.Module):
         embeds = self.char_embeds(sentence).view(len(sentence), 1, -1)
         lstm_out, self.hidden = self.lstm(embeds, self.hidden)
         lstm_out = lstm_out.view(len(sentence), self.hidden_dim)
+        if self.use_bigram:
+            embeds_shift_left = torch.cat(
+                [self.char_embeds(processor.tensor([self.start_char_id])).view(1, 1, -1),
+                embeds[:-1]])
+            embeds_shift_right = torch.cat(
+                [embeds[1:],
+                self.char_embeds(processor.tensor([self.stop_char_id])).view(1, 1, -1)])
+            embeds_bi1 = (embeds_shift_left + embeds) / 2
+            embeds_bi2 = (embeds_shift_right + embeds) / 2
+            lstm_out = torch.cat([embeds_bi1.squeeze(), lstm_out, embeds_bi2.squeeze()], 1)
         lstm_feats = self.hidden2tag(lstm_out)
         return lstm_feats
 
