@@ -49,9 +49,9 @@ def load_datasets():
     test_instances = dataset["test_instances"]
 
     if args.debug:
-        training_instances = training_instances[:800]
-        dev_instances = dev_instances[:100]
-        test_instances = test_instances[:100]
+        training_instances = training_instances[:1600]
+        dev_instances = dev_instances[:200]
+        test_instances = test_instances[:200]
 
     return training_instances, dev_instances, test_instances, c2i, t2i
 
@@ -127,8 +127,10 @@ def save_model(model):
     utils.ensure_folder(filename)
     torch.save(model, filename)
 
+
 args = arguments.parse_args()
 logger = init_logger()
+logger.info(args)
 
 
 def main():
