@@ -30,7 +30,6 @@ class BiLSTM_CRF(nn.Module):
 
         self.use_bigram = use_bigram
         self.hidden_dim = hidden_dim
-        self.dropout = nn.Dropout(dropout)
 
         # Train or load pretrained char_embedding
         if char_embedding is None:
@@ -39,13 +38,12 @@ class BiLSTM_CRF(nn.Module):
             char_embedding = processor.tensor(char_embedding, dtype=torch.float)
             self.char_embeds = nn.Embedding.from_pretrained(char_embedding)
         self.lstm = nn.LSTM(embedding_dim, hidden_dim // 2,
-                            num_layers=1, bidirectional=True)
+                            dropout=dropout, num_layers=1, bidirectional=True)
 
+        if use_bigram:
+            hidden_dim += embedding_dim * 2
         # Maps the output of the LSTM into tag space.
-        if not use_bigram:
-            self.hidden2tag = nn.Linear(hidden_dim, self.tagset_size)
-        else:
-            self.hidden2tag = nn.Linear(hidden_dim + embedding_dim * 2, self.tagset_size)
+        self.hidden2tag = nn.Linear(hidden_dim, tagset_size)
 
         # Matrix of transition parameters.  Entry i,j is the score of
         # transitioning *to* i *from* j.
@@ -56,8 +54,6 @@ class BiLSTM_CRF(nn.Module):
         # to the start tag and we never transfer from the stop tag
         self.transitions.data[start_tag_id, :] = -10000
         self.transitions.data[:, stop_tag_id] = -10000
-
-        self.hidden = self.init_hidden()
 
     def init_hidden(self):
         return (processor.randn(2, 1, self.hidden_dim // 2),
@@ -96,19 +92,21 @@ class BiLSTM_CRF(nn.Module):
 
     def _get_lstm_features(self, sentence):
         self.hidden = self.init_hidden()
-        embeds = self.char_embeds(sentence).view(len(sentence), 1, -1)
-        lstm_out, self.hidden = self.lstm(embeds, self.hidden)
-        lstm_out = lstm_out.view(len(sentence), self.hidden_dim)
+        embeds = self.char_embeds(sentence)
+        lstm_out, self.hidden = self.lstm(embeds.view(len(sentence), 1, -1), self.hidden)
+        lstm_out = lstm_out.squeeze()
         if self.use_bigram:
-            embeds_shift_left = torch.cat(
-                [self.char_embeds(processor.tensor([self.start_char_id])).view(1, 1, -1),
-                embeds[:-1]])
-            embeds_shift_right = torch.cat(
-                [embeds[1:],
-                self.char_embeds(processor.tensor([self.stop_char_id])).view(1, 1, -1)])
+            embeds_shift_left = torch.cat([
+                    self.char_embeds(processor.tensor([self.start_char_id])),
+                    embeds[:-1]
+                ])
+            embeds_shift_right = torch.cat([
+                    embeds[1:],
+                    self.char_embeds(processor.tensor([self.stop_char_id]))
+                ])
             embeds_bi1 = (embeds_shift_left + embeds) / 2
             embeds_bi2 = (embeds_shift_right + embeds) / 2
-            lstm_out = torch.cat([embeds_bi1.squeeze(), lstm_out, embeds_bi2.squeeze()], 1)
+            lstm_out = torch.cat([embeds_bi1, lstm_out, embeds_bi2], 1)
         lstm_feats = self.hidden2tag(lstm_out)
         return lstm_feats
 
@@ -175,7 +173,6 @@ class BiLSTM_CRF(nn.Module):
     def forward(self, sentence):  # dont confuse this with _forward_alg above.
         # Get the emission scores from the BiLSTM
         lstm_feats = self._get_lstm_features(sentence)
-        lstm_feats = self.dropout(lstm_feats)
 
         # Find the best path, given the features.
         score, tag_seq = self._viterbi_decode(lstm_feats)
