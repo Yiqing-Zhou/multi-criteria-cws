@@ -14,7 +14,7 @@ def parse_args():
                         help="Learning rate decay")
 
     parser.add_argument("--char-embeddings", dest="char_embeddings", help="File from which to read in pretrained embeds")
-    parser.add_argument("--char-embedding-dim", default=100, dest="char_embedding_dim", type=int,
+    parser.add_argument("--char-embeddings-dim", default=100, dest="char_embeddings_dim", type=int,
                         help="Dimension of char embedding")
 
     parser.add_argument("--dataset", required=True, dest="dataset", help=".pkl file to use")

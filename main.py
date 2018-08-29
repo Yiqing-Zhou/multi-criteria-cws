@@ -14,7 +14,7 @@ import processor
 from model import BiLSTM_CRF
 
 Instance = collections.namedtuple("Instance", ["sentence", "tags"])
-
+Instance_digit = collections.namedtuple("Instance_digit", ["sentence_array", "tag_ids"])
 
 def init_logger():
     logger = logging.getLogger()
@@ -35,25 +35,48 @@ def init_logger():
 
 
 def load_datasets():
-    dataset = pickle.load(open(args.dataset, "rb"))
+    # Make up some training data
+    training_data = [(
+        "充 满 活 力 的 热 门 音 乐 ，".split(),
+        "B E B E S B E B E S".split()
+    ), (
+        "铺 着 石 板 的 广 场 中 搭 起 舞 台 ，".split(),
+        "S S B E S B E S B E B E S".split()
+    )]
+    training_data_digit = []
+    tag_to_ix = {'S': 0, 'B': 1, 'E': 2, 'M': 3}
+    char_to_ix = {}
+    for sentence, tags in training_data:
+        sentence_array = []
+        for char in sentence:
+            if char not in char_to_ix:
+                sentence_array.append(len(char_to_ix))
+                char_to_ix[char] = len(char_to_ix)
+            else:
+                sentence_array.append(char_to_ix[char])
+        tag_ids = [tag_to_ix[t] for t in tags]
+        training_data_digit.append(Instance_digit(sentence_array, tag_ids))
+    return training_data_digit, training_data_digit, training_data_digit, char_to_ix, tag_to_ix
 
-    # Get mappings
-    t2i = dataset["t2i"]
-    c2i = dataset["c2i"]
-    # Inverse mappings
-    i2t = utils.to_id_list(t2i)
-    i2c = utils.to_id_list(c2i)
-    # Get datasets
-    training_instances = dataset["training_instances"]
-    dev_instances = dataset["dev_instances"]
-    test_instances = dataset["test_instances"]
+    # dataset = pickle.load(open(args.dataset, "rb"))
 
-    if args.debug:
-        training_instances = training_instances[:1600]
-        dev_instances = dev_instances[:200]
-        test_instances = test_instances[:200]
+    # # Get mappings
+    # t2i = dataset["t2i"]
+    # c2i = dataset["c2i"]
+    # # Inverse mappings
+    # i2t = utils.to_id_list(t2i)
+    # i2c = utils.to_id_list(c2i)
+    # # Get datasets
+    # training_instances = dataset["training_instances"]
+    # dev_instances = dataset["dev_instances"]
+    # test_instances = dataset["test_instances"]
 
-    return training_instances, dev_instances, test_instances, c2i, t2i
+    # if args.debug:
+    #     training_instances = training_instances[:1600]
+    #     dev_instances = dev_instances[:200]
+    #     test_instances = test_instances[:200]
+
+    # return training_instances, dev_instances, test_instances, c2i, t2i
 
 
 def complete_collection(element_to_ix, element_list):
@@ -75,20 +98,21 @@ def init_model(char_to_ix, tag_to_ix, START_CHAR_ID, STOP_CHAR_ID, START_TAG_ID,
             EMBEDDING_DIM = char_embeddings.shape[1]
         else:
             char_embeddings = None
-            EMBEDDING_DIM = args.char_embedding_dim
+            EMBEDDING_DIM = args.char_embeddings_dim
         model = BiLSTM_CRF(len(char_to_ix), len(tag_to_ix), START_CHAR_ID, STOP_CHAR_ID, START_TAG_ID, STOP_TAG_ID,
                             args.use_bigram, args.hidden_dim, args.dropout, EMBEDDING_DIM, char_embeddings)
 
     return processor.to_cuda_if_available(model)
 
 
-def train(model, training_data, learning_rate):
+def train(model, training_data, optimizer):
     model.train()
 
     num_batches = math.ceil(len(training_data) / args.batch_size)
     bar = utils.Progbar(target=num_batches)
+    train_loss = 0.0
+    train_total_instances = 0
 
-    optimizer = optim.SGD([p for p in model.parameters() if p.requires_grad], lr=learning_rate)
     for batch_id, batch in enumerate(utils.minibatches(training_data, args.batch_size)):
         model.zero_grad()
         
@@ -98,28 +122,43 @@ def train(model, training_data, learning_rate):
 
             loss = model.neg_log_likelihood(sentence_in, targets)
             loss.backward()
+
+            train_loss += loss
+            train_total_instances += 1
+
         optimizer.step()
 
-        bar.update(batch_id + 1, exact=[("train loss", loss.item())])
+        bar.update(batch_id + 1, exact=[("train loss", train_loss / train_total_instances)])
 
     if args.save_checkpoint:
         save_model(model)
 
 
-def evaluate(model, test_data, dataset_name):
+def evaluate(model, eval_data, dataset_name):
     model.eval()
+    
+    num_batches = math.ceil(len(eval_data) / args.batch_size)
+    bar = utils.Progbar(target=num_batches)
+    eval_score = 0.0
+    eval_total_instances = 0
+    eval_total_characters = 0
+    eval_correct_characters = 0
+
     with torch.no_grad():
-        total = 0
-        correct = 0
-        for sentence, tags in test_data:
-            score, tag_seq = model(processor.tensor(sentence))
-            if len(tag_seq) != len(tags):
-                raise IndexError('Size of output tag sequence differs from that of reference.')
-            totl = len(tags)
-            crct = [tag_seq[i] == tags[i] for i in range(1, totl - 1)].count(1)
-            total += totl
-            correct += crct
-        logger.info('{} dataset accuracy: {}'.format(dataset_name, correct/total))
+        for batch_id, batch in enumerate(utils.minibatches(eval_data, args.batch_size)):
+            for sentence, tags in batch:
+                score, tag_out = model(processor.tensor(sentence))
+                if len(tag_out) != len(tags):
+                    raise IndexError('Size of output tag sequence differs from that of reference.')
+                length = len(tags)
+                correct = [tag_out[i] == tags[i] for i in range(1, length - 1)].count(1)
+                eval_score += score
+                eval_total_instances += 1
+                eval_total_characters += length
+                eval_correct_characters += correct
+            bar.update(batch_id + 1, exact=[("eval score", eval_score / eval_total_instances)])
+
+        logger.info('{} dataset accuracy: {}'.format(dataset_name, eval_correct_characters/eval_total_characters))
 
 
 def save_model(model):
@@ -147,8 +186,9 @@ def main():
         # Train the model
         for epoch in range(args.num_epochs):
             learning_rate = args.learning_rate / (1 + epoch)
-            logger.info('Epoch: {}/{}. Learning rate:{}'.format(epoch, args.num_epochs, learning_rate))
-            train(model, training_data, learning_rate)
+            optimizer = optim.SGD([p for p in model.parameters() if p.requires_grad], lr=learning_rate)
+            logger.info('Epoch: {}/{}. Learning rate:{}'.format(epoch+1, args.num_epochs, learning_rate))
+            train(model, training_data, optimizer)
             if not args.skip_dev:
                 evaluate(model, dev_data, 'Dev')
 

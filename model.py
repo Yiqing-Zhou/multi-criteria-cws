@@ -18,7 +18,7 @@ def log_sum_exp(vec):
 class BiLSTM_CRF(nn.Module):
 
     def __init__(self, vocab_size, tagset_size, start_char_id, stop_char_id, start_tag_id, stop_tag_id,
-                    use_bigram, hidden_dim, dropout, embedding_dim, char_embedding=None):
+                    use_bigram, hidden_dim, dropout, embedding_dim, char_embeddings=None):
         super(BiLSTM_CRF, self).__init__()
         self.vocab_size = vocab_size
         self.tagset_size = tagset_size
@@ -31,12 +31,12 @@ class BiLSTM_CRF(nn.Module):
         self.use_bigram = use_bigram
         self.hidden_dim = hidden_dim
 
-        # Train or load pretrained char_embedding
-        if char_embedding is None:
+        # Train or load pretrained char_embeddings
+        if char_embeddings is None:
             self.char_embeds = nn.Embedding(vocab_size, embedding_dim)
         else:
-            char_embedding = processor.tensor(char_embedding, dtype=torch.float)
-            self.char_embeds = nn.Embedding.from_pretrained(char_embedding)
+            char_embeddings = processor.tensor(char_embeddings, dtype=torch.float)
+            self.char_embeds = nn.Embedding.from_pretrained(char_embeddings)
         self.lstm = nn.LSTM(embedding_dim, hidden_dim // 2,
                             dropout=dropout, num_layers=1, bidirectional=True)
 
